@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PCA 每小时任务辅助表</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f4f7fb;
+      color: #1f2937;
+    }
+
+    h2 {
+      margin-bottom: 8px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .toolbar button.active {
+      background: #1d4ed8;
+    }
+
+    .context-menu {
+      position: fixed;
+      display: none;
+      background: white;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+      overflow: visible;
+      z-index: 1000;
+      min-width: 170px;
+      padding: 4px 0;
+    }
+
+    .menu-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      background: white;
+      color: #111827;
+      border: none;
+      border-radius: 0;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .menu-item:hover {
+      background: #f3f4f6;
+    }
+
+    .menu-item .menu-arrow {
+      color: #6b7280;
+      font-size: 12px;
+    }
+
+    .submenu {
+      position: absolute;
+      left: calc(100% + 2px);
+      top: 0;
+      display: none;
+      min-width: 180px;
+      background: white;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+      padding: 4px 0;
+      z-index: 1010;
+    }
+
+    .menu-item:hover > .submenu,
+    .menu-item:focus-within > .submenu {
+      display: block;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.32);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .modal-overlay.visible {
+      display: flex;
+    }
+
+    .modal-dialog {
+      width: min(560px, calc(100vw - 32px));
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+      border: 1px solid #e5e7eb;
+      padding: 20px 20px 16px;
+    }
+
+    .modal-title {
+      margin: 0 0 16px;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .modal-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .modal-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .modal-row label {
+      min-width: 120px;
+      color: #374151;
+      font-weight: 600;
+    }
+
+    .modal-row input {
+      flex: 1;
+      min-width: 140px;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .action-bar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .secondary-btn {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .secondary-btn:hover {
+      background: #d1d5db;
+    }
+
+    .recent-panel {
+      display: none;
+      margin-top: 12px;
+      background: white;
+      border: 1px solid #dbe3ee;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      max-width: 580px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .recent-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .recent-item:last-child {
+      border-bottom: none;
+    }
+
+    .recent-empty {
+      padding: 10px 12px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .suggestion-box {
+      position: fixed;
+      display: none;
+      background: white;
+      border: 1px solid #dbe3ee;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      overflow: hidden;
+      z-index: 1100;
+      min-width: 180px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #1f2937;
+      background: white;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .suggestion-item:hover,
+    .suggestion-item.active {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    .hint {
+      margin-bottom: 12px;
+      color: #4b5563;
+      font-size: 14px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    table {
+      width: max-content;
+      min-width: 0;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #dbe3ee;
+      padding: 8px 10px;
+      min-width: 0;
+      width: auto;
+      vertical-align: top;
+      outline: none;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f8fafc;
+      font-weight: 600;
+      text-align: left;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      background: #fef9c3;
+    }
+
+    .summary-col {
+      background: #eef2ff;
+    }
+
+    .summary-orange {
+      background: #fde7d7;
+    }
+
+    .summary-blue {
+      background: #dbeafe;
+    }
+
+    .time-1 {
+      background: #e0f2fe;
+    }
+
+    .time-2 {
+      background: #fef3c7;
+    }
+
+    .time-3 {
+      background: #ede9fe;
+    }
+
+    td:focus {
+      background: #fef3c7;
+    }
+
+    tr.selected-row {
+      background: #fef3c7;
+    }
+
+    tr.deleted-row {
+      background: #e5e7eb !important;
+      color: #6b7280;
+    }
+
+    tr.deleted-row td {
+      color: #6b7280;
+      background: #e5e7eb !important;
+    }
+  </style>
+</head>
+<body>
+  <h2>PCA 每小时任务辅助表</h2>
+  <p class="hint">点击或双击单元格即可编辑，内容会自动保存到本地浏览器中。</p>
+
+  <div class="toolbar">
+    <button id="add-row">新增一行</button>
+    <button id="clear-table">重置模板</button>
+    <button id="recent-deletions">最近删除</button>
+    <button id="purge-deleted">清除已删除</button>
+  </div>
+  <div id="recent-deletions-panel" class="recent-panel"></div>
+  <p class="hint">右键 Room No. 单元格可将该行标记为已删除，并移到表格末尾。</p>
+
+  <div id="context-menu" class="context-menu">
+    <div class="menu-item" data-action="new-patient">
+      <span>New Patient</span>
+      <span class="menu-arrow">▶</span>
+      <div class="submenu">
+        <div class="menu-item" data-action="new-patient-normal">Normal</div>
+        <div class="menu-item" data-action="new-patient-abnormal">Abnormal</div>
+      </div>
+    </div>
+    <div class="menu-item" data-action="discharge">
+      <span>Discharge</span>
+      <span class="menu-arrow">▶</span>
+      <div class="submenu">
+        <div class="menu-item" data-action="discharge-discharged">Discharged</div>
+        <div class="menu-item" data-action="plan-discharge">Plan Discharge</div>
+      </div>
+    </div>
+    <div class="menu-item" data-action="others">
+      <span>Others</span>
+      <span class="menu-arrow">▶</span>
+      <div class="submenu">
+        <div class="menu-item" data-action="delete-row">delete record</div>
+        <div class="menu-item" data-action="no-new-staff">No New staff &amp; student</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay" aria-hidden="true">
+    <div class="modal-dialog">
+      <h3 id="modal-title" class="modal-title"></h3>
+      <div id="modal-body" class="modal-form"></div>
+      <div class="action-bar">
+        <button type="button" id="modal-cancel" class="secondary-btn">Cancel</button>
+        <button type="button" id="modal-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table id="editable-table"></table>
+  </div>
+
+  <script>
+    const storageKey = 'pca-task-table-v1';
+    const recentDeletedStorageKey = 'pca-recent-deleted-v1';
+    const table = document.getElementById('editable-table');
+    const contextMenu = document.getElementById('context-menu');
+    const recentDeletedPanel = document.getElementById('recent-deletions-panel');
+    const modalOverlay = document.getElementById('modal-overlay');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalCancel = document.getElementById('modal-cancel');
+    const modalOk = document.getElementById('modal-ok');
+    let selectedRow = null;
+    let contextMenuTargetCell = null;
+    let currentModalAction = null;
+
+    function hideContextMenu() {
+      if (!contextMenu) return;
+      contextMenu.style.display = 'none';
+      contextMenuTargetCell = null;
+      // 隐藏可能展开的子菜单
+      Array.from(contextMenu.querySelectorAll('.submenu')).forEach((s) => {
+        s.style.display = 'none';
+      });
+    }
+    const summaryLabels = ['Room No.', 'Temp', 'BP/P', 'SpO2', 'I/O', "H'stix", 'Cold/Hot Pad', 'GameReady', 'Turning/Napkin', 'Tray', 'Post-op', 'Notes'];
+    const hourLabels = [
+      '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+      '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00',
+      '00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '07:00'
+    ];
+    const roomNoSuggestions = [
+      '1001E', '1001A', '1001B', '1003A', '1003B', '1005A', '1005B',
+      '1007A', '1007B', '1009A', '1009B', '1011A', '1011B', '1015A',
+      '1015B', '1017A', '1017B'
+    ];
+    const tempSuggestions = ['Fever QH', 'Fever Q4H', 'Q4H', 'QID', 'Q6H'];
+    const bpPSuggestions = ['Q4H', 'QID', 'Q6H'];
+    const ioSuggestions = ['DAT', 'Soft', 'Congee', 'Sips'];
+    const hStixSuggestions = ['QD', 'OM', 'TDS', 'TDS+N', 'Q4H'];
+    const columnConfig = [
+      { key: 'roomNo', label: 'Room No.', suggestions: roomNoSuggestions },
+      { key: 'temp', label: 'Temp', suggestions: tempSuggestions },
+      { key: 'bpP', label: 'BP/P', suggestions: bpPSuggestions },
+      { key: 'spo2', label: 'SpO2' },
+      { key: 'io', label: 'I/O', suggestions: ioSuggestions },
+      { key: 'hStix', label: "H'stix", suggestions: hStixSuggestions },
+      { key: 'coldHotPad', label: 'Cold/Hot Pad' },
+      { key: 'gameReady', label: 'GameReady' },
+      { key: 'turningNapkin', label: 'Turning/Napkin' },
+      { key: 'tray', label: 'Tray' },
+      { key: 'frequency', label: 'Post-op' },
+      { key: 'notes', label: 'Notes' }
+    ];
+    const suggestionBox = document.createElement('div');
+    suggestionBox.className = 'suggestion-box';
+    document.body.appendChild(suggestionBox);
+
+    function getColumnClass(index) {
+      if (index === 0) return 'sticky-col';
+      const summaryCount = summaryLabels.length;
+      if (index < summaryCount) {
+        if (index >= 1 && index <= 3) return 'summary-orange';
+        if (index === 4) return 'summary-blue';
+        return 'summary-col';
+      }
+      const hourIndex = index - summaryCount;
+      if (hourIndex < 8) return 'time-1';
+      if (hourIndex < 16) return 'time-2';
+      return 'time-3';
+    }
+
+    function getSuggestionMatches(cell, rawValue = '') {
+      const suggestions = cell && cell.dataset.suggestions ? JSON.parse(cell.dataset.suggestions) : [];
+      if (!suggestions.length) {
+        return [];
+      }
+
+      const value = (rawValue || '').trim().toUpperCase();
+      if (!value) {
+        return suggestions.slice(0, 8);
+      }
+
+      return suggestions.filter((item) => String(item).toUpperCase().includes(value));
+    }
+
+    function hideRoomSuggestions() {
+      suggestionBox.style.display = 'none';
+      suggestionBox.innerHTML = '';
+    }
+
+    function showRoomSuggestions(cell, rawValue = '') {
+      if (!cell || !cell.dataset.suggestions) {
+        hideRoomSuggestions();
+        return;
+      }
+
+      const matches = getSuggestionMatches(cell, rawValue);
+      if (!matches.length) {
+        hideRoomSuggestions();
+        return;
+      }
+
+      suggestionBox.innerHTML = '';
+      matches.forEach((item) => {
+        const option = document.createElement('div');
+        option.className = 'suggestion-item';
+        option.textContent = item;
+        option.addEventListener('mousedown', (event) => {
+          event.preventDefault();
+          cell.textContent = item;
+          hideRoomSuggestions();
+          saveState();
+          cell.focus();
+        });
+        suggestionBox.appendChild(option);
+      });
+
+      const rect = cell.getBoundingClientRect();
+      suggestionBox.style.left = `${rect.left}px`;
+      suggestionBox.style.top = `${rect.bottom + 6}px`;
+      suggestionBox.style.display = 'block';
+    }
+
+    function selectRow(cell) {
+      const row = cell && cell.closest('tr');
+      if (!row || row.parentElement !== table.tBodies[0]) return null;
+
+      Array.from(table.querySelectorAll('tr.selected-row')).forEach((item) => {
+        item.classList.remove('selected-row');
+      });
+
+      row.classList.add('selected-row');
+      selectedRow = row;
+      return row;
+    }
+
+    function toggleSpo2Cell(cell) {
+      if (!cell || cell.dataset.field !== 'spo2') return;
+      const nextValue = cell.textContent === '✔' ? '' : '✔';
+      cell.textContent = nextValue;
+      saveState();
+      selectRow(cell);
+    }
+
+    function createCell(tagName, text = '', index = 0) {
+      const cell = document.createElement(tagName);
+      const column = columnConfig[index] || {};
+      cell.className = `cell ${getColumnClass(index)}`;
+      if (tagName === 'td') {
+        cell.dataset.field = column.key || `col-${index}`;
+        if (column.key === 'spo2') {
+          cell.contentEditable = false;
+          cell.style.cursor = 'pointer';
+          cell.textContent = text === '✔' ? '✔' : '';
+          cell.addEventListener('click', () => toggleSpo2Cell(cell));
+        } else {
+          cell.contentEditable = true;
+          cell.textContent = text;
+          if (column.suggestions) {
+            cell.dataset.suggestions = JSON.stringify(column.suggestions);
+          }
+          cell.addEventListener('focus', () => {
+            selectRow(cell);
+            if (cell.dataset.suggestions) {
+              showRoomSuggestions(cell, cell.textContent);
+            }
+          });
+          cell.addEventListener('mousedown', () => {
+            selectRow(cell);
+          });
+          cell.addEventListener('input', () => {
+            if (cell.dataset.suggestions) {
+              showRoomSuggestions(cell, cell.textContent);
+            }
+          });
+          cell.addEventListener('blur', () => {
+            setTimeout(() => {
+              hideRoomSuggestions();
+            }, 120);
+          });
+        }
+      } else {
+        cell.textContent = text;
+      }
+      return cell;
+    }
+
+    function buildDefaultTable() {
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+
+      summaryLabels.forEach((label, index) => {
+        headerRow.appendChild(createCell('th', label, index));
+      });
+
+      hourLabels.forEach((label, index) => {
+        headerRow.appendChild(createCell('th', label, index + summaryLabels.length));
+      });
+
+      thead.appendChild(headerRow);
+
+      const tbody = document.createElement('tbody');
+      table.append(thead, tbody);
+    }
+
+    
+
+    function rebuildTable() {
+      table.innerHTML = '';
+      buildDefaultTable();
+      saveState();
+    }
+
+    // 序列化表格为结构化数据（用于可靠持久化）
+    function serializeTableData() {
+      const rows = [];
+      const body = table.tBodies[0];
+      if (!body) return { rows: [] };
+      Array.from(body.rows).forEach((tr) => {
+        const cells = Array.from(tr.cells).map((td) => (td.textContent || ''));
+        const deleted = tr.classList.contains('deleted-row');
+        rows.push({ cells, deleted });
+      });
+      return { rows };
+    }
+
+    // 根据序列化数据重建表格 tbody
+    function restoreTableFromData(data) {
+      table.innerHTML = '';
+      buildDefaultTable();
+      const body = table.tBodies[0];
+      if (!data || !Array.isArray(data.rows)) return;
+      data.rows.forEach((r) => {
+        const tr = document.createElement('tr');
+        r.cells.forEach((text, idx) => {
+          tr.appendChild(createCell('td', text, idx));
+        });
+        if (r.deleted) {
+          tr.classList.add('deleted-row');
+          Array.from(tr.cells).forEach((cell) => {
+            cell.contentEditable = false;
+            cell.style.background = '#e5e7eb';
+            cell.style.color = '#6b7280';
+          });
+        }
+        body.appendChild(tr);
+      });
+      restoreCellBehaviors();
+    }
+
+    function addRow() {
+      const body = table.tBodies[0] || (function(){ buildDefaultTable(); return table.tBodies[0]; })();
+      const row = document.createElement('tr');
+      const columnCount = table.tHead && table.tHead.rows[0] ? table.tHead.rows[0].cells.length : (summaryLabels.length + hourLabels.length);
+      for (let i = 0; i < columnCount; i += 1) {
+        row.appendChild(createCell('td', '', i));
+      }
+      body.appendChild(row);
+      restoreCellBehaviors();
+      saveState();
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) {
+        rebuildTable();
+        return;
+      }
+
+      try {
+        const data = JSON.parse(saved);
+        // 如果数据格式不匹配则重建默认表格
+        if (!data || !Array.isArray(data.rows)) {
+          localStorage.removeItem(storageKey);
+          rebuildTable();
+          return;
+        }
+        restoreTableFromData(data);
+      } catch (e) {
+        // 解析失败，回退到默认模板
+        localStorage.removeItem(storageKey);
+        rebuildTable();
+      }
+    }
+
+    function saveState() {
+      try {
+        const data = serializeTableData();
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      } catch (e) {
+        // 兜底：回退到存 raw innerHTML
+        try {
+          localStorage.setItem(storageKey, table.innerHTML);
+        } catch (e2) {}
+      }
+    }
+
+    // 当从 localStorage 载入 innerHTML 时，原有的事件监听器会丢失。
+    // 此函数为加载后的单元格重新绑定交互事件（建议/选中/输入/失焦）。
+    function restoreCellBehaviors() {
+      const body = table.tBodies[0];
+      if (!body) return;
+      Array.from(body.querySelectorAll('tr')).forEach((row) => {
+        Array.from(row.cells).forEach((cell) => {
+          // 避免重复绑定
+          if (cell._behaviorsAttached) return;
+          cell._behaviorsAttached = true;
+
+          if (cell.dataset.field === 'spo2') {
+            cell.contentEditable = false;
+            cell.style.cursor = 'pointer';
+            if (!cell._spo2ToggleBound) {
+              cell._spo2ToggleBound = true;
+              cell.addEventListener('click', () => toggleSpo2Cell(cell));
+            }
+            return;
+          }
+
+          // 根据行状态设置可编辑性
+          if (row.classList.contains('deleted-row')) {
+            cell.contentEditable = false;
+          } else {
+            cell.contentEditable = true;
+          }
+
+          cell.addEventListener('focus', () => {
+            selectRow(cell);
+            if (cell.dataset.suggestions) {
+              showRoomSuggestions(cell, cell.textContent);
+            }
+          });
+
+          cell.addEventListener('mousedown', () => {
+            selectRow(cell);
+          });
+
+          cell.addEventListener('input', () => {
+            if (cell.dataset.suggestions) {
+              showRoomSuggestions(cell, cell.textContent);
+            }
+            saveState();
+          });
+
+          cell.addEventListener('blur', () => {
+            setTimeout(() => {
+              hideRoomSuggestions();
+            }, 120);
+          });
+        });
+      });
+    }
+    
+
+    function getRecentDeletedRows() {
+      try {
+        const data = JSON.parse(localStorage.getItem(recentDeletedStorageKey) || '[]');
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        return [];
+      }
+    }
+
+    function saveRecentDeletedRows(rows) {
+      localStorage.setItem(recentDeletedStorageKey, JSON.stringify(rows.slice(0, 10)));
+    }
+
+    function renderRecentDeletedRows() {
+      const rows = getRecentDeletedRows();
+      if (!rows.length) {
+        recentDeletedPanel.innerHTML = '<div class="recent-empty">暂无最近删除记录</div>';
+        return;
+      }
+
+      recentDeletedPanel.innerHTML = rows
+        .map((entry) => `<div class="recent-item">${entry}</div>`)
+        .join('');
+    }
+
+    function addRecentDeletedRow(entryText) {
+      const rows = getRecentDeletedRows();
+      rows.unshift(entryText);
+      saveRecentDeletedRows(rows);
+      renderRecentDeletedRows();
+    }
+
+    function toggleRecentDeletedPanel() {
+      const isVisible = recentDeletedPanel.style.display === 'block';
+      recentDeletedPanel.style.display = isVisible ? 'none' : 'block';
+      if (!isVisible) {
+        renderRecentDeletedRows();
+      }
+    }
+
+    function deleteRow(row) {
+      const body = table.tBodies[0];
+      if (!body || !row || row.parentElement !== body) return;
+
+      // 构造删除记录文本并存入最近删除列表
+      const roomNo = (row.cells[0] && row.cells[0].textContent.trim()) || '';
+      const summary = Array.from(row.cells).map((c) => (c.textContent || '').trim()).join(' | ');
+      const entry = roomNo ? `${roomNo} — ${summary}` : summary;
+      addRecentDeletedRow(entry);
+
+      // 直接移除该行
+      row.remove();
+      selectedRow = null;
+      saveState();
+    }
+
+    function purgeDeletedRows() {
+      const body = table.tBodies[0];
+      if (!body) return;
+      const toRemove = Array.from(body.querySelectorAll('tr.deleted-row'));
+      if (!toRemove.length) return alert('没有标记为已删除的行可清理');
+      toRemove.forEach((r) => r.remove());
+      saveState();
+      renderRecentDeletedRows();
+      alert('已清理标记为已删除的行');
+    }
+
+    function archiveDeletedRow(row, entryText) {
+      const body = table.tBodies[0];
+      if (!body || !row || row.parentElement !== body) {
+        return;
+      }
+
+      addRecentDeletedRow(entryText);
+      row.remove();
+      saveState();
+    }
+
+    function getCurrentRoomNo() {
+      if (!contextMenuTargetCell) return '';
+      return (contextMenuTargetCell.textContent || '').trim();
+    }
+
+    function appendRowNote(entryText) {
+      if (!contextMenuTargetCell) return;
+      const row = contextMenuTargetCell.closest('tr');
+      if (!row) return;
+      const notesCell = row.cells[7];
+      if (!notesCell) return;
+
+      const currentValue = (notesCell.textContent || '').trim();
+      const nextValue = currentValue ? `${currentValue}\n${entryText}` : entryText;
+      notesCell.textContent = nextValue;
+      row.classList.remove('deleted-row');
+      saveState();
+    }
+
+    function formatInputDateTime(date = new Date()) {
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('visible');
+      modalTitle.textContent = '';
+      modalBody.innerHTML = '';
+      currentModalAction = null;
+    }
+
+    function openNormalPatientModal() {
+      const roomNo = getCurrentRoomNo();
+      const value = formatInputDateTime(new Date());
+      currentModalAction = 'normal';
+      modalTitle.textContent = `New Patient in ${roomNo} at ${value.replace('T', ' ')}`;
+      modalBody.innerHTML = `
+        <div class="modal-row">
+          <label for="patient-time">Time</label>
+          <input id="patient-time" type="datetime-local" value="${value}" />
+        </div>
+      `;
+      modalOverlay.classList.add('visible');
+      modalOk.onclick = () => {
+        const enteredTime = document.getElementById('patient-time').value || value;
+        const formattedTime = enteredTime.replace('T', ' ');
+        appendRowNote(`New Patient in ${roomNo} at ${formattedTime}`);
+        closeModal();
+        hideContextMenu();
+      };
+      modalCancel.onclick = closeModal;
+    }
+
+    function openAbnormalPatientModal() {
+      const roomNo = getCurrentRoomNo();
+      const value = formatInputDateTime(new Date());
+      currentModalAction = 'abnormal';
+      modalTitle.textContent = `New Patient in ${roomNo} at ${value.replace('T', ' ')}`;
+      modalBody.innerHTML = `
+        <div class="modal-row">
+          <label for="abnormal-time">Time</label>
+          <input id="abnormal-time" type="datetime-local" value="${value}" />
+        </div>
+        <div class="modal-row">
+          <label for="abnormal-temp">Abnormal in Temp</label>
+          <input id="abnormal-temp" placeholder="Temp" />
+        </div>
+        <div class="modal-row">
+          <label for="abnormal-bp">BP</label>
+          <input id="abnormal-bp" placeholder="BP" />
+        </div>
+        <div class="modal-row">
+          <label for="abnormal-p">P</label>
+          <input id="abnormal-p" placeholder="P" />
+        </div>
+        <div class="modal-row">
+          <label for="abnormal-rr">RR</label>
+          <input id="abnormal-rr" placeholder="RR" />
+        </div>
+        <div class="modal-row">
+          <label for="abnormal-spo2">SpO2</label>
+          <input id="abnormal-spo2" placeholder="SpO2" />
+        </div>
+        <div class="modal-row">
+          <label>Body Weight</label>
+          <select id="body-weight-status" style="padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+            <option value="">Select</option>
+            <option value="欠BW">欠BW</option>
+            <option value="Overweight">Overweight</option>
+          </select>
+          <input id="body-weight-value" placeholder="Weight" style="flex: 0.7; min-width: 100px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;" />
+        </div>
+        <div class="modal-row">
+          <label>Body Height</label>
+          <select id="body-height-status" style="padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+            <option value="">Select</option>
+            <option value="欠BH">欠BH</option>
+          </select>
+          <input id="body-height-value" placeholder="Height" style="flex: 0.7; min-width: 100px; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;" />
+        </div>
+      `;
+      modalOverlay.classList.add('visible');
+      modalOk.onclick = () => {
+        const enteredTime = document.getElementById('abnormal-time').value || value;
+        const abnormalTemp = document.getElementById('abnormal-temp').value.trim();
+        const abnormalBp = document.getElementById('abnormal-bp').value.trim();
+        const abnormalP = document.getElementById('abnormal-p').value.trim();
+        const abnormalRr = document.getElementById('abnormal-rr').value.trim();
+        const abnormalSpo2 = document.getElementById('abnormal-spo2').value.trim();
+        const bodyWeightStatus = document.getElementById('body-weight-status').value.trim();
+        const bodyWeightValue = document.getElementById('body-weight-value').value.trim();
+        const bodyHeightStatus = document.getElementById('body-height-status').value.trim();
+        const bodyHeightValue = document.getElementById('body-height-value').value.trim();
+        const detailParts = [];
+        if (abnormalTemp) detailParts.push(`Temp ${abnormalTemp}`);
+        if (abnormalBp) detailParts.push(`BP ${abnormalBp}`);
+        if (abnormalP) detailParts.push(`P ${abnormalP}`);
+        if (abnormalRr) detailParts.push(`RR ${abnormalRr}`);
+        if (abnormalSpo2) detailParts.push(`SpO2 ${abnormalSpo2}`);
+        if (bodyWeightStatus) detailParts.push(`Body Weight ${bodyWeightStatus}${bodyWeightValue ? ` ${bodyWeightValue}` : ''}`);
+        if (bodyHeightStatus) detailParts.push(`Body Height ${bodyHeightStatus}${bodyHeightValue ? ` ${bodyHeightValue}` : ''}`);
+        const detailText = detailParts.length ? `; Abnormal in ${detailParts.join(', ')}` : '; Abnormal';
+        appendRowNote(`New Patient in ${roomNo} at ${enteredTime.replace('T', ' ')}${detailText}`);
+        closeModal();
+        hideContextMenu();
+      };
+      modalCancel.onclick = closeModal;
+    }
+
+    function openDischargedModal() {
+      const roomNo = getCurrentRoomNo();
+      const time = formatInputDateTime(new Date());
+      modalTitle.textContent = `Patient in ${roomNo} Discharged at ${time.replace('T', ' ')}`;
+      modalBody.innerHTML = `
+        <div class="modal-row">
+          <label for="discharge-time">Time</label>
+          <input id="discharge-time" type="datetime-local" value="${time}" />
+        </div>
+      `;
+      modalOverlay.classList.add('visible');
+      modalOk.onclick = () => {
+        const row = contextMenuTargetCell && contextMenuTargetCell.closest('tr');
+        if (!row) {
+          closeModal();
+          return;
+        }
+        const selectedTime = document.getElementById('discharge-time').value || time;
+        const entry = `Patient in ${roomNo} Discharged at ${selectedTime.replace('T', ' ')}`;
+        archiveDeletedRow(row, entry);
+        closeModal();
+        hideContextMenu();
+      };
+      modalCancel.onclick = closeModal;
+    }
+
+    function openPlanDischargeModal() {
+      const roomNo = getCurrentRoomNo();
+      const time = formatInputDateTime(new Date());
+      modalTitle.textContent = `Patient in ${roomNo} Plan Discharge at ${time.replace('T', ' ')}`;
+      modalBody.innerHTML = `
+        <div class="modal-row">
+          <label for="plan-discharge-time">Time</label>
+          <input id="plan-discharge-time" type="datetime-local" value="${time}" />
+        </div>
+      `;
+      modalOverlay.classList.add('visible');
+      modalOk.onclick = () => {
+        const selectedTime = document.getElementById('plan-discharge-time').value || time;
+        const entry = `Patient in ${roomNo} Plan Discharge at ${selectedTime.replace('T', ' ')}`;
+        appendRowNote(entry);
+        closeModal();
+        hideContextMenu();
+      };
+      modalCancel.onclick = closeModal;
+    }
+
+    function handleContextAction(action) {
+      if (!contextMenuTargetCell) return;
+      const row = contextMenuTargetCell.closest('tr');
+      if (!row) return;
+
+      if (action === 'delete-row') {
+        deleteRow(row);
+        hideContextMenu();
+        return;
+      }
+
+      if (action === 'no-new-staff') {
+        appendRowNote('No New staff & student');
+        hideContextMenu();
+        return;
+      }
+
+      if (action === 'discharge-discharged') {
+        openDischargedModal();
+        return;
+      }
+
+      if (action === 'plan-discharge') {
+        openPlanDischargeModal();
+        return;
+      }
+
+      if (action === 'new-patient-normal') {
+        openNormalPatientModal();
+        return;
+      }
+
+      if (action === 'new-patient-abnormal') {
+        openAbnormalPatientModal();
+      }
+    }
+
+    function bindMenuActions() {
+      contextMenu.querySelectorAll('.menu-item').forEach((item) => {
+        const submenu = item.querySelector('.submenu');
+        item.addEventListener('click', (event) => {
+          event.stopPropagation();
+          // 如果该项有子菜单，则切换子菜单显示（用于点击触发，而非悬停）
+          if (submenu) {
+            const isVisible = submenu.style.display === 'block';
+            // 先隐藏其它子菜单
+            contextMenu.querySelectorAll('.submenu').forEach((s) => (s.style.display = 'none'));
+            submenu.style.display = isVisible ? 'none' : 'block';
+            return;
+          }
+
+          const action = item.dataset.action;
+          if (action) {
+            handleContextAction(action);
+          }
+          // 点击具体动作后关闭菜单
+          hideContextMenu();
+        });
+      });
+    }
+
+    document.getElementById('add-row').addEventListener('click', addRow);
+    document.getElementById('clear-table').addEventListener('click', () => {
+      if (confirm('确定要重置为默认模板吗？')) {
+        localStorage.removeItem(storageKey);
+        table.innerHTML = '';
+        buildDefaultTable();
+      }
+    });
+    document.getElementById('recent-deletions').addEventListener('click', toggleRecentDeletedPanel);
+    document.getElementById('purge-deleted').addEventListener('click', purgeDeletedRows);
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.suggestion-item') && !event.target.closest('td')) {
+        hideRoomSuggestions();
+      }
+      if (!event.target.closest('#context-menu') && !event.target.closest('.menu-item')) {
+        hideContextMenu();
+      }
+      if (!event.target.closest('.modal-dialog') && !event.target.closest('#modal-ok') && !event.target.closest('#modal-cancel')) {
+        if (modalOverlay.classList.contains('visible')) {
+          const activeDialog = modalOverlay.querySelector('.modal-dialog');
+          if (activeDialog && !activeDialog.contains(event.target)) {
+            closeModal();
+          }
+        }
+      }
+    });
+
+    table.addEventListener('click', (event) => {
+      const cell = event.target.closest('td');
+      if (!cell) return;
+      if (cell.dataset.field === 'spo2') {
+        toggleSpo2Cell(cell);
+        return;
+      }
+      selectRow(cell);
+    });
+    // 左键点击任意表格位置时隐藏自定义右键菜单（便于在点击单元格时收起）
+    table.addEventListener('mousedown', (event) => {
+      if (event.button === 0) {
+        hideContextMenu();
+      }
+    });
+
+    table.addEventListener('contextmenu', (event) => {
+      const cell = event.target.closest('td');
+      const row = cell && cell.closest('tr');
+      const body = table.tBodies[0];
+
+      if (!cell || !row || row.parentElement !== body || cell.cellIndex !== 0 || row.classList.contains('deleted-row')) {
+        hideContextMenu();
+        return;
+      }
+
+      event.preventDefault();
+      contextMenuTargetCell = cell;
+      contextMenu.style.display = 'block';
+      contextMenu.style.left = `${event.clientX}px`;
+      contextMenu.style.top = `${event.clientY}px`;
+      selectRow(cell);
+    });
+
+    table.addEventListener('input', saveState);
+    bindMenuActions();
+    renderRecentDeletedRows();
+    loadState();
+  </script>
+</body>
+</html>
